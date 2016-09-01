@@ -1,0 +1,17 @@
+version: '2'
+services:
+    registry:
+        restart: always
+        image: registry:2
+        ports:
+          - 5000:5000
+       
+    registry-ui:
+        image: konradkleine/docker-registry-frontend:v2
+        hostname: registry-ui
+        ports:
+          - 8082:80
+        environment:
+            ENV_DOCKER_REGISTRY_HOST: registry
+            ENV_DOCKER_REGISTRY_PORT: 5000
+

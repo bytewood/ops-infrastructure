@@ -1,0 +1,48 @@
+#!/bin/sh
+command=$1
+env=$2
+
+
+usage() {
+    echo "Usage:"
+    echo "    vm command environment"
+    exit 1
+}
+
+[ -z "${command}" ] && usage
+[ -z "${env}" ] && usage
+
+export SWARM_MANAGER="${env}-swarm-manager"
+export SWARM_WORKER_A="${env}-swarm-worker-a"
+case "${command}" in
+    up)
+        docker-machine create \
+            -d virtualbox \
+            --engine-insecure-registry 192.168.42.74:5000 \
+            ${SWARM_MANAGER}
+        docker-machine create -d virtualbox ${SWARM_WORKER_A}
+        ;;
+    swarm)
+        ADVERTISED_IP=`docker-machine ip ${SWARM_MANAGER}`
+        join_swarm_instructions=`docker-machine ssh ${SWARM_MANAGER} docker swarm init --advertise-addr=${ADVERTISED_IP}`
+        echo ${join_swarm_instructions}
+        JOIN_SWARM_TOKEN=`echo "${join_swarm_instructions}" | sed -e 's|\\|\n|g' | grep '\--token' | awk '{print $2}'`
+        echo ${JOIN_SWARM_TOKEN}
+        docker-machine ssh ${SWARM_WORKER_A} docker swarm join \
+            --token=${JOIN_SWARM_TOKEN} \
+            ${ADVERTISED_IP}:2377
+        ;;
+    nodes)
+        docker-machine ssh ${SWARM_MANAGER} docker node ls
+        ;;
+    stop)
+       docker-machine ls -q | grep ${env} | xargs -r docker-machine stop
+        ;;
+
+    rm)
+        docker-machine ls -q | grep ${env} | xargs -r docker-machine rm -f
+        ;;
+esac
+
+exit
+
